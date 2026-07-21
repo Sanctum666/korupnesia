@@ -6,8 +6,10 @@ description = "a project filled with koruptor's data from our beloved NKRI, and 
 readme = "README.md"
 dependencies = [
     "beautifulsoup4>=4.12.3",
+    "dash>=2.18.0",
     "loguru>=0.7.3",
     "lxml>=5.3.0",
+    "pandas>=2.2.0",
     "pydantic>=2.13.4",
     "requests>=2.32.3",
     "result",
