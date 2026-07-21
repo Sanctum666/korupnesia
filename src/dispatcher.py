@@ -7,11 +7,12 @@ it also logs the infos
 import sys
 import math
 import os
+import csv
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from shared.configured_logger import logger
 from parser import parse_korupedia_detail
-from result.result import Result, Err, Ok
+from result.result import Err, Ok
 
 
 log = logger.bind(component="dispatcher")
@@ -71,63 +72,68 @@ def get_data_chunk(data_dir, chunk_size: int | None = None) -> list[list[Path]] 
     return [items[i : i + cs] for i in range(0, len(items), cs)]
 
 
-def _process_batch_worker(batch: list[Path]) -> None:
+def _process_batch_worker(batch: list[Path]) -> list[dict[str, str]]:
     """Processes all items inside a single chunk sequentially.
 
     Runs natively in parallel with other batch workers on a GIL-free runtime.
     """
     worker_logger = logger.bind(
         worker_size=len(batch),
+        component="worker",
     )
 
-    worker_logger.info("Batch worker started")
+    worker_logger.info("batch worker started")
 
     success = 0
     failed = 0
+    collected: list[dict[str, str]] = []
 
     for file_path in batch:
-        file_logger = worker_logger.bind(
-            file=str(file_path),
-        )
+        file_logger = worker_logger.bind(file=str(file_path), component="inside_worker")
 
         match parse_korupedia_detail(file_path):
             case Ok(data):
                 success += 1
+                collected.append(data)
 
             case Err(e):
-                # XXX: should i log here or inside the callee or both?
+                file_logger.exception(
+                    "Failed processing file",
+                )
                 failed += 1
-                continue
-
-        file_logger.exception(
-            "Failed processing file",
-        )
-        # TODO: put data in csv
-        # TODO: put data in db
 
     worker_logger.info(
-        "Batch worker completed",
+        "batch worker completed",
         success=success,
         failed=failed,
     )
 
+    return collected
 
-def batch_process(data: list[list[Path]]) -> None:
+
+# TODO: this function is doing too much at the moment, make it more modular next time
+def batch_process(data: list[list[Path]], output_csv: Path | None = None) -> None:
     """Spawns parallel native threads matching the total chunk count.
 
     Args:
         data: A nested list where each sublist represents an independent
             processing chunk mapped directly to a hardware thread execution line.
+        output_csv: Path to write the resulting CSV. Defaults to ``database/data.csv``
+            in the project root.
     """
     if not data:
         logger.error("no data batches provided")
         return
+
+    if output_csv is None:
+        output_csv = Path(__file__).parent.parent / "database/data.csv"
 
     num_threads = len(data)
 
     total_files = sum(len(batch) for batch in data)
 
     log = logger.bind(
+        component="batches",
         num_threads=num_threads,
         total_batches=len(data),
         total_files=total_files,
@@ -137,6 +143,7 @@ def batch_process(data: list[list[Path]]) -> None:
 
     completed_workers = 0
     failed_workers = 0
+    all_data: list[dict[str, str]] = []
 
     with ThreadPoolExecutor(
         max_workers=num_threads,
@@ -154,7 +161,8 @@ def batch_process(data: list[list[Path]]) -> None:
             batch_id = futures[future]
 
             try:
-                future.result()
+                result = future.result()
+                all_data.extend(result)
                 completed_workers += 1
                 logger.bind(
                     batch_id=batch_id,
@@ -168,6 +176,14 @@ def batch_process(data: list[list[Path]]) -> None:
                 ).exception(
                     "worker crashed",
                 )
+
+    if all_data:
+        fieldnames = list({k for row in all_data for k in row})
+        with open(output_csv, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
+            writer.writeheader()
+            writer.writerows(all_data)
+        log.info("csv_written", path=str(output_csv), rows=len(all_data))
 
     log.info(
         "batch processing finished",

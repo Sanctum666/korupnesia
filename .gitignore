@@ -9,3 +9,4 @@ logs/
 todo.txt
 # Virtual environments
 .venv
+database/

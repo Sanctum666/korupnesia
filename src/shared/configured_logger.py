@@ -7,7 +7,11 @@ from loguru import logger
 
 # absolute path to the project root
 PROJECT_ROOT = Path(__file__).resolve().parent.parent.parent
-LOGFORMAT = "<level>[{level}]</level>: <green>{time}</green> | {extra[component]} | {message}:{extra}"
+LOGFORMAT = lambda record: (
+    "<level>[{level}]</level>: <green>{time}</green> |"
+    + ("[{extra[component]}] | " if "component" in record["extra"] else "")
+    + " | {message}:{extra}\n"
+)
 LOGSTASH_LOGFILE = Path(f"{PROJECT_ROOT}/logs/dispatcher_serializable.log")
 _configured = False
 

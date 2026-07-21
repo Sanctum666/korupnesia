@@ -27,22 +27,18 @@ def parse_korupedia_detail(
     return: A dictionary containing scraped data, or None if scraping fails.
     """
     soup: BeautifulSoup
-    parser_log = logger.bind(component="parser")
     safe_read_text = result.as_result(UnicodeDecodeError)(Path.read_text)
     safe_bs = result.as_result(Exception)(BeautifulSoup)
 
     path = Path(file_path)
     if file_path == "" or not path.exists():
-        parser_log.error("file does not exists")
         return Err(ParserError(err_msg="file does not exists", err_file=file_path))
 
     if not os.access(path, os.R_OK):
-        parser_log.error("file is not accessible")
         return Err(ParserError(err_msg="file is not accessible", err_file=file_path))
 
     r = safe_read_text(path, encoding="utf-8")
     if r.match_err(UnicodeDecodeError):
-        parser_log.error("failed to decode file to utf-8")
         return Err(
             ParserError(err_msg="failed to decode file to utf-8", err_file=file_path)
         )
@@ -77,8 +73,8 @@ def parse_korupedia_detail(
             scraped_data[key] = value
 
     # TODO: disable or pipe to other output
-    parser_log.info(f"{file_path} scraped successfully:")
-    parser_log.info(json.dumps(scraped_data, indent=2, ensure_ascii=False))
+    # parser_log.info(f"{file_path} scraped successfully:")
+    # parser_log.info(json.dumps(scraped_data, indent=2, ensure_ascii=False))
 
     return Ok(scraped_data)
 
