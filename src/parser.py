@@ -72,10 +72,6 @@ def parse_korupedia_detail(
             value = cells[1].get_text().strip()
             scraped_data[key] = value
 
-    # TODO: disable or pipe to other output
-    # parser_log.info(f"{file_path} scraped successfully:")
-    # parser_log.info(json.dumps(scraped_data, indent=2, ensure_ascii=False))
-
     return Ok(scraped_data)
 
 

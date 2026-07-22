@@ -1,3 +1,4 @@
+# NOTE: not planned as of now, lots of data missing
 # WARNING: unfinished, will throw error
 # The purpose of this is to get the pic of the corruptor that will be used for making games
 # h1 .entry-title nama-hakim untuk nama koruptor
